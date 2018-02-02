@@ -268,3 +268,62 @@ class TestRemoteUserAuth(BaseTestCase):
         })
 
         self.assert_correct_user_attributes(self.get_test_user())
+
+    def test_remote_login_group_assignment_disabled(self):
+        group = group = self.factory.create_group(name='Remote Group')
+        res = self.get_request('/remote_user/login', org=self.factory.org, headers={
+            'X-Forwarded-Remote-User': 'test@example.com',
+            'X-Forwarded-Remote-User-Groups': 'Remote Group'
+        })
+
+        self.assert_correct_user_attributes(self.get_test_user())
+
+    def test_remote_login_group_assignment_enabled(self):
+        self.override_settings({
+            'REDASH_REMOTE_USER_GROUPS_ENABLED': 'true'
+        })
+        group = self.factory.create_group(name='Remote Group')
+        res = self.get_request('/remote_user/login', org=self.factory.org, headers={
+            'X-Forwarded-Remote-User': 'test@example.com',
+            'X-Forwarded-Remote-User-Groups': 'Remote Group'
+        })
+
+        self.assert_correct_user_attributes(self.get_test_user(), groups=[group.id])
+
+    def test_remote_login_group_assignment_multiple_groups(self):
+        self.override_settings({
+            'REDASH_REMOTE_USER_GROUPS_ENABLED': 'true'
+        })
+        groups = [
+            self.factory.create_group(name='Remote Group 1'),
+            self.factory.create_group(name='Remote Group 2'),
+            self.factory.create_group(name='Remote Group 3')
+        ]
+        res = self.get_request('/remote_user/login', org=self.factory.org, headers={
+            'X-Forwarded-Remote-User': 'test@example.com',
+            'X-Forwarded-Remote-User-Groups': 'Remote Group 1,Remote Group 2, Remote Group 3'
+        })
+
+        self.assert_correct_user_attributes(self.get_test_user(), groups=[g.id for g in groups])
+
+    def test_remote_login_group_assignment_ignore_extra_groups(self):
+        self.override_settings({
+            'REDASH_REMOTE_USER_GROUPS_ENABLED': 'true'
+        })
+        group = self.factory.create_group(name='Remote Group')
+        res = self.get_request('/remote_user/login', org=self.factory.org, headers={
+            'X-Forwarded-Remote-User': 'test@example.com',
+            'X-Forwarded-Remote-User-Groups': 'Remote Group, Missing Group'
+        })
+
+        self.assert_correct_user_attributes(self.get_test_user(), groups=[group.id])
+
+    def test_remote_login_group_assignment_no_groups(self):
+        self.override_settings({
+            'REDASH_REMOTE_USER_GROUPS_ENABLED': 'true'
+        })
+        res = self.get_request('/remote_user/login', org=self.factory.org, headers={
+            'X-Forwarded-Remote-User': 'test@example.com',
+        })
+
+        self.assert_correct_user_attributes(self.get_test_user())

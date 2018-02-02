@@ -30,6 +30,14 @@ def login(org_slug=None):
         logger.error("Cannot use remote user for login when it's not provided in the request (looked in headers['" + settings.REMOTE_USER_HEADER + "'])")
         return redirect(url_for('redash.index', next=next_path, org_slug=org_slug))
 
-    logger.info("Logging in " + email + " via remote user")
-    create_and_login_user(current_org, email, email)
+    user = create_and_login_user(current_org, email, email)
+
+    if settings.REMOTE_USER_GROUPS_ENABLED:
+        groups = request.headers.get(settings.REMOTE_USER_GROUPS_HEADER)
+        if groups:
+            group_names = {group.strip() for group in groups.split(',')}
+            user.update_group_assignments(group_names)
+
+    logger.info("Logged in remote user %s with groups %s", user.email, ', '.join(map(str, set(user.group_ids))))
+
     return redirect(next_path or url_for('redash.index', org_slug=org_slug), code=302)
